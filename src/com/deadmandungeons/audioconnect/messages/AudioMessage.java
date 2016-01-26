@@ -1,14 +1,11 @@
 package com.deadmandungeons.audioconnect.messages;
 
-import java.io.File;
 import java.lang.reflect.Type;
-import java.net.URL;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
-import com.deadmandungeons.connect.commons.ConnectUtils;
 import com.deadmandungeons.connect.commons.Messenger.Message;
 import com.deadmandungeons.connect.commons.Messenger.MessageCreator;
 import com.deadmandungeons.connect.commons.Messenger.MessageType;
@@ -143,9 +140,6 @@ public class AudioMessage extends Message {
 	
 	public static class AudioFile {
 		
-		// Only accept secure sources
-		private static final String[] EXTERNAL_URL_PROTOCOLS = { "https", "ftps" };
-		private static final Pattern FILE_PATH_PATTERN = Pattern.compile("[/a-zA-Z0-9_-]+");
 		private static final String FILE_NAME_CHARS = "a-zA-Z0-9-_"; // a-zA-Z0-9-_~!()+
 		private static final String FILE_NAME_REGEX = "^[" + FILE_NAME_CHARS + "]+(\\.[" + FILE_NAME_CHARS + "]+)*(\\.[a-zA-z0-9]{1,8})$";
 		private static final Pattern FILE_NAME_PATTERN = Pattern.compile(FILE_NAME_REGEX);
@@ -156,57 +150,28 @@ public class AudioMessage extends Message {
 			this.location = location;
 		}
 		
-		
 		/**
-		 * @param audioFileUrl - The URL string locating a publicly accessible audio file using a secure protocol
-		 * @return a new AudioFile instance representing a textually valid external web resource URL. <code>null</code
-		 * will be returned if the audioFileUrl is not a valid URL with a secure protocol [https, ftps]
+		 * Valid file name characters are ASCII letters, digits, underscores, hyphens, and periods. A period character can
+		 * only be used between any other valid character, and is needed for separating the file extension suffix from the
+		 * name part. The file extension suffix is required, and must contain 1 to 8 ASCII letters or digits only.<br><br>
+		 * <table border>
+		 * <tr><td>Valid file name Examples</td><td>Invalid file name Examples</td></tr>
+		 * <tr><td>filename.mp3</td><td>filename</td></tr>
+		 * <tr><td>file-name.ogg</td><td>file-name.</td></tr>
+		 * <tr><td>_file__name_.mp3</td><td>file_+_name.mp3</td></tr>
+		 * <tr><td>file.name.wav</td><td>file..name.wav</td></tr>
+		 * </table>
+		 * @param audioFileName - The name of an audio file that was uploaded and stored on the AudioConnect web application
+		 * @return a new AudioFile instance representing a textually valid audio file stored locally on the webserver.
+		 * <code>null</code> will be returned if the file name is either improperly structured, or contains illegal characters.
 		 */
-		public static AudioFile externalHost(String audioFileUrl) {
-			URL url = ConnectUtils.parseUrl(audioFileUrl);
-			if (url != null) {
-				for (String allowedProtocol : EXTERNAL_URL_PROTOCOLS) {
-					if (allowedProtocol.equalsIgnoreCase(url.getProtocol())) {
-						return new AudioFile(url.toString());
-					}
+		public static AudioFile create(String audioFileName) {
+			if (audioFileName != null) {
+				if (FILE_NAME_PATTERN.matcher(audioFileName).matches()) {
+					return new AudioFile(audioFileName);
 				}
 			}
 			return null;
-		}
-		
-		/**
-		 * @param audioFilePath - the file path locating an audio file that was uploaded and stored on the AudioConnect web-server endpoint
-		 * @return a new AudioFile instance representing a textually valid local web resource file path. <code>null</code> will be returned if the
-		 * path and/or file name is either not structured properly or contains invalid characters.
-		 */
-		public static AudioFile localHost(String audioFilePath) {
-			if (audioFilePath != null) {
-				File file = new File(audioFilePath);
-				String fileName = file.getName();
-				String path = file.getPath().substring(0, file.getPath().length() - fileName.length()).replaceAll("\\\\", "/");
-				if (path.isEmpty() || FILE_PATH_PATTERN.matcher(path).matches()) {
-					if (FILE_NAME_PATTERN.matcher(fileName).matches()) {
-						return new AudioFile(audioFilePath);
-					}
-				}
-			}
-			return null;
-		}
-		
-		/**
-		 * @param audioFile - The location of either an external or local audio file
-		 * @return a new AudioFile instance representing a textually valid web resource file
-		 */
-		public static AudioFile fromString(String audioFile) {
-			AudioFile file = null;
-			if (audioFile != null) {
-				file = externalHost(audioFile);
-				if (file == null) {
-					file = localHost(audioFile);
-				}
-			}
-			
-			return file;
 		}
 		
 	}
