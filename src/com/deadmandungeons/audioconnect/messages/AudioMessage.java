@@ -68,7 +68,7 @@ public class AudioMessage extends Message {
 		}
 		
 		public Builder delayRange(Range delayRange) {
-			this.delayRange = delayRange;
+			this.delayRange = (delayRange.min != 0 || delayRange.max != 0 ? delayRange : null);
 			return this;
 		}
 		
@@ -129,6 +129,13 @@ public class AudioMessage extends Message {
 		private final int max;
 		
 		public Range(int min, int max) {
+			if (min > max) {
+				throw new IllegalArgumentException("min cannot be greater than max");
+			}
+			if (min < 0 || max < 0) {
+				throw new IllegalArgumentException("min or max cannot be less than 0");
+			}
+			
 			this.min = min;
 			this.max = max;
 		}
