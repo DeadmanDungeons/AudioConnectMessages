@@ -1,19 +1,21 @@
 package com.deadmandungeons.audioconnect.messages;
 
+import java.io.File;
 import java.lang.reflect.Type;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
-import com.deadmandungeons.connect.commons.Messenger.Message;
+import com.deadmandungeons.connect.commons.Messenger.IdentifiableMessage;
 import com.deadmandungeons.connect.commons.Messenger.MessageCreator;
 import com.deadmandungeons.connect.commons.Messenger.MessageType;
 import com.google.common.primitives.Ints;
 
 
 @MessageType("audio")
-public class AudioMessage extends Message {
+public class AudioMessage extends IdentifiableMessage {
 	
 	public static final MessageCreator<AudioMessage> CREATOR = new MessageCreator<AudioMessage>(AudioMessage.class) {
 		
@@ -149,6 +151,23 @@ public class AudioMessage extends Message {
 		}
 		
 		@Override
+		public int hashCode() {
+			return Objects.hash(min, max);
+		}
+		
+		@Override
+		public boolean equals(Object obj) {
+			if (obj == this) {
+				return true;
+			}
+			if (!(obj instanceof Range)) {
+				return false;
+			}
+			Range other = (Range) obj;
+			return min == other.min && max == other.max;
+		}
+		
+		@Override
 		public String toString() {
 			return min + "-" + max;
 		}
@@ -179,6 +198,7 @@ public class AudioMessage extends Message {
 		private static final String FILE_NAME_CHARS = "a-zA-Z0-9-_"; // a-zA-Z0-9-_~!()+
 		private static final String FILE_NAME_REGEX = "^[" + FILE_NAME_CHARS + "]+(\\.[" + FILE_NAME_CHARS + "]+)*(\\.[a-zA-z0-9]{1,8})$";
 		private static final Pattern FILE_NAME_PATTERN = Pattern.compile(FILE_NAME_REGEX);
+		private static final Pattern FILE_PATH_PATTERN = Pattern.compile("^[/]?([a-zA-Z0-9-_]+[/])*$");
 		
 		private final String location;
 		
@@ -187,20 +207,22 @@ public class AudioMessage extends Message {
 		}
 		
 		/**
-		 * @param audioFileName - The name of an audio file that was uploaded and stored on the AudioConnectWeb application
+		 * @param audioFilePath - The name of an audio file that was uploaded and stored on the AudioConnectWeb application
 		 * @return a new AudioFile instance representing a textually valid audio file stored locally on the webserver.
 		 * <code>null</code> will be returned if audioFileName is null or if it is invalid (See {@link #isValid(String)}).
 		 */
-		public static AudioFile create(String audioFileName) {
-			if (audioFileName != null) {
-				if (isValid(audioFileName)) {
-					return new AudioFile(audioFileName);
+		public static AudioFile create(String audioFilePath) {
+			if (audioFilePath != null) {
+				if (isValid(audioFilePath)) {
+					return new AudioFile(audioFilePath);
 				}
 			}
 			return null;
 		}
 		
 		/**
+		 * Valid file path characters are ASCII letters, digits, underscores, hyphens, and slash. A slash character cannot
+		 * be used adjacent to another slash character.<br><br>
 		 * Valid file name characters are ASCII letters, digits, underscores, hyphens, and periods. A period character can
 		 * only be used between any other valid character, and is needed for separating the file extension suffix from the
 		 * name part. The file extension suffix is required, and must contain 1 to 8 ASCII letters or digits only.<br><br>
@@ -211,12 +233,32 @@ public class AudioMessage extends Message {
 		 * <tr><td>_file__name_.mp3</td><td>file_+_name.mp3</td></tr>
 		 * <tr><td>file.name.wav</td><td>file..name.wav</td></tr>
 		 * </table>
-		 * @param audioFileName - The name of an audio file that was uploaded and stored on the AudioConnectWeb application
-		 * @return <code>true</code> if the file name is valid and <code>false</code> if the file name is either improperly
-		 * structured, or contains illegal characters.
+		 * @param audioFilePath - The path to an audio file that was uploaded and stored on the AudioConnectWeb application
+		 * @return <code>true</code> if the file path and name is valid and <code>false</code> if the file path or name is
+		 * either improperly structured, or contains illegal characters.
 		 */
-		public static boolean isValid(String audioFileName) {
-			return FILE_NAME_PATTERN.matcher(audioFileName).matches();
+		public static boolean isValid(String audioFilePath) {
+			File file = new File(audioFilePath);
+			String fileName = file.getName();
+			String path = file.getPath().substring(0, file.getPath().length() - fileName.length()).replaceAll("\\\\", "/");
+			return (path.isEmpty() || FILE_PATH_PATTERN.matcher(path).matches()) && FILE_NAME_PATTERN.matcher(fileName).matches();
+		}
+		
+		
+		@Override
+		public int hashCode() {
+			return location.hashCode();
+		}
+		
+		@Override
+		public boolean equals(Object obj) {
+			if (obj == this) {
+				return true;
+			}
+			if (!(obj instanceof AudioFile)) {
+				return false;
+			}
+			return location.equals(((AudioFile) obj).location);
 		}
 		
 	}
