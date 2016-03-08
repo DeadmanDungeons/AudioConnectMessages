@@ -1,16 +1,16 @@
 package com.deadmandungeons.audioconnect.messages;
 
-import java.io.File;
 import java.lang.reflect.Type;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Pattern;
 
 import com.deadmandungeons.connect.commons.Messenger.IdentifiableMessage;
 import com.deadmandungeons.connect.commons.Messenger.MessageCreator;
 import com.deadmandungeons.connect.commons.Messenger.MessageType;
+import com.deadmandungeons.connect.commons.Result;
+import com.google.common.base.Joiner;
 import com.google.common.primitives.Ints;
 
 
@@ -195,10 +195,8 @@ public class AudioMessage extends IdentifiableMessage {
 	
 	public static class AudioFile {
 		
-		private static final String FILE_NAME_CHARS = "a-zA-Z0-9-_"; // a-zA-Z0-9-_~!()+
-		private static final String FILE_NAME_REGEX = "^[" + FILE_NAME_CHARS + "]+(\\.[" + FILE_NAME_CHARS + "]+)*(\\.[a-zA-z0-9]{1,8})$";
-		private static final Pattern FILE_NAME_PATTERN = Pattern.compile(FILE_NAME_REGEX);
-		private static final Pattern FILE_PATH_PATTERN = Pattern.compile("^[/]?([a-zA-Z0-9-_]+[/])*$");
+		private static final String FILE_NAME_SPECIAL_CHARS = "-_()[]!~+ ";
+		private static final String FILE_PATH_SPECIAL_CHARS = ".-_~!$&'()*+,;=:@";
 		
 		private final String location;
 		
@@ -206,44 +204,9 @@ public class AudioMessage extends IdentifiableMessage {
 			this.location = location;
 		}
 		
-		/**
-		 * @param audioFilePath - The name of an audio file that was uploaded and stored on the AudioConnectWeb application
-		 * @return a new AudioFile instance representing a textually valid audio file stored locally on the webserver.
-		 * <code>null</code> will be returned if audioFileName is null or if it is invalid (See {@link #isValid(String)}).
-		 */
-		public static AudioFile create(String audioFilePath) {
-			if (audioFilePath != null) {
-				if (isValid(audioFilePath)) {
-					return new AudioFile(audioFilePath);
-				}
-			}
-			return null;
+		public String getLocation() {
+			return location;
 		}
-		
-		/**
-		 * Valid file path characters are ASCII letters, digits, underscores, hyphens, and slash. A slash character cannot
-		 * be used adjacent to another slash character.<br><br>
-		 * Valid file name characters are ASCII letters, digits, underscores, hyphens, and periods. A period character can
-		 * only be used between any other valid character, and is needed for separating the file extension suffix from the
-		 * name part. The file extension suffix is required, and must contain 1 to 8 ASCII letters or digits only.<br><br>
-		 * <table border>
-		 * <tr><td>Valid file name Examples</td><td>Invalid file name Examples</td></tr>
-		 * <tr><td>filename.mp3</td><td>filename</td></tr>
-		 * <tr><td>file-name.ogg</td><td>file-name.</td></tr>
-		 * <tr><td>_file__name_.mp3</td><td>file_+_name.mp3</td></tr>
-		 * <tr><td>file.name.wav</td><td>file..name.wav</td></tr>
-		 * </table>
-		 * @param audioFilePath - The path to an audio file that was uploaded and stored on the AudioConnectWeb application
-		 * @return <code>true</code> if the file path and name is valid and <code>false</code> if the file path or name is
-		 * either improperly structured, or contains illegal characters.
-		 */
-		public static boolean isValid(String audioFilePath) {
-			File file = new File(audioFilePath);
-			String fileName = file.getName();
-			String path = file.getPath().substring(0, file.getPath().length() - fileName.length()).replaceAll("\\\\", "/");
-			return (path.isEmpty() || FILE_PATH_PATTERN.matcher(path).matches()) && FILE_NAME_PATTERN.matcher(fileName).matches();
-		}
-		
 		
 		@Override
 		public int hashCode() {
@@ -259,6 +222,104 @@ public class AudioMessage extends IdentifiableMessage {
 				return false;
 			}
 			return location.equals(((AudioFile) obj).location);
+		}
+		
+		
+		public static final Result<AudioFile> fromFilePath(String filePath) {
+			String fileName;
+			String path = (filePath != null ? filePath.trim() : "");
+			String[] pathParts = path.split("/", -1);
+			if (pathParts.length > 1) {
+				Set<Character> invalidChars = new HashSet<>();
+				for (int i = 0; i < pathParts.length - 1; i++) {
+					String pathPart = pathParts[i];
+					if (pathPart.isEmpty()) {
+						if (i > 0) {
+							return new Result<>("File path cannot have adjacent '/' (slash) characters");
+						}
+					} else {
+						for (int n = 0; n < pathPart.length(); n++) {
+							char currentChar = pathPart.charAt(n);
+							if (!isAsciiAlphaNumeric(currentChar) && FILE_PATH_SPECIAL_CHARS.indexOf(currentChar) < 0) {
+								invalidChars.add(currentChar);
+							}
+						}
+					}
+				}
+				if (!invalidChars.isEmpty()) {
+					String characters = Joiner.on("', '").join(invalidChars);
+					return new Result<>("File path contains invalid characters '" + characters + "'");
+				}
+				fileName = pathParts[pathParts.length - 1];
+			} else {
+				fileName = path;
+			}
+			
+			String fileNameError = validateFileName(fileName);
+			if (fileNameError != null) {
+				return new Result<>(fileNameError);
+			}
+			return new Result<>(new AudioFile(path));
+		}
+		
+		public static final Result<AudioFile> fromFileName(String fileName) {
+			String name = (fileName != null ? fileName.trim() : "");
+			String fileNameError = validateFileName(name);
+			if (fileNameError != null) {
+				return new Result<>(fileNameError);
+			}
+			return new Result<>(new AudioFile(name));
+		}
+		
+		private static final String validateFileName(String fileName) {
+			if (fileName.isEmpty()) {
+				return "File name cannot be empty, or blank";
+			}
+			int lastDotIndex = fileName.lastIndexOf('.');
+			if (lastDotIndex <= 0 || fileName.length() - 1 == lastDotIndex) {
+				return "File name must contain file extension";
+			}
+			if ((fileName.length() - 1) - lastDotIndex > 8) {
+				return "File extension cannot be more than 8 characters";
+			}
+			
+			char previousChar = 0;
+			Set<Character> invalidChars = new HashSet<>();
+			for (int i = 0; i < fileName.length(); i++) {
+				char currentChar = fileName.charAt(i);
+				if (currentChar == '.') {
+					if (previousChar == '.') {
+						return "File name cannot have adjacent '.' (dot) characters";
+					}
+					if (i == 0) {
+						return "File name cannot start with '.' (dot) characters";
+					}
+				} else {
+					boolean validChar;
+					if (i > lastDotIndex) {
+						if (i - 1 == lastDotIndex && !invalidChars.isEmpty()) {
+							String characters = Joiner.on("', '").join(invalidChars);
+							return "File name contains invalid characters '" + characters + "'";
+						}
+						validChar = isAsciiAlphaNumeric(currentChar);
+					} else {
+						validChar = isAsciiAlphaNumeric(currentChar) || FILE_NAME_SPECIAL_CHARS.indexOf(currentChar) >= 0;
+					}
+					if (!validChar) {
+						invalidChars.add(currentChar);
+					}
+				}
+				previousChar = currentChar;
+			}
+			if (!invalidChars.isEmpty()) {
+				String characters = Joiner.on("', '").join(invalidChars);
+				return "File extension contains invalid characters '" + characters + "'";
+			}
+			return null;
+		}
+		
+		private static boolean isAsciiAlphaNumeric(char character) {
+			return (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9');
 		}
 		
 	}
