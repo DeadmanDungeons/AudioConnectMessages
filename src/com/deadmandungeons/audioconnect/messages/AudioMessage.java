@@ -173,22 +173,20 @@ public class AudioMessage extends IdentifiableMessage {
 		}
 		
 		public static Range parse(String rangeStr) {
-			rangeStr = rangeStr.trim();
-			Integer minMax = Ints.tryParse(rangeStr);
-			if (minMax != null && minMax >= 0) {
-				return new Range(minMax, minMax);
-			} else {
-				String[] rangeArray = rangeStr.split("-");
-				if (rangeArray.length != 2) {
-					return null;
+			String[] rangeArray = rangeStr.trim().split("-", -1);
+			if (rangeArray.length == 1) {
+				Integer minMax = Ints.tryParse(rangeArray[0].trim());
+				if (minMax != null && minMax >= 0) {
+					return new Range(minMax, minMax);
 				}
+			} else if (rangeArray.length == 2) {
 				Integer min = Ints.tryParse(rangeArray[0].trim());
 				Integer max = Ints.tryParse(rangeArray[1].trim());
-				if (min == null || max == null || min > max) {
-					return null;
+				if (min != null && max != null && min <= max) {
+					return new Range(min, max);
 				}
-				return new Range(min, max);
 			}
+			return null;
 		}
 		
 	}
