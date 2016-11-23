@@ -10,7 +10,6 @@ import com.deadmandungeons.connect.commons.Messenger.IdentifiableMessage;
 import com.deadmandungeons.connect.commons.Messenger.MessageCreator;
 import com.deadmandungeons.connect.commons.Messenger.MessageType;
 import com.deadmandungeons.connect.commons.Result;
-import com.google.common.base.Joiner;
 import com.google.common.primitives.Ints;
 
 
@@ -21,14 +20,15 @@ public class AudioMessage extends IdentifiableMessage {
 		
 		@Override
 		public AudioMessage createInstance(Type type) {
-			return builder(null).build();
+			return new AudioMessage(new Builder(null));
 		}
 	};
 	
-	private final Set<String> audioFiles;
+	private final Set<String> audioIds;
+	private final String trackId;
 	private final Range delayRange;
-	private final boolean primary;
 	
+	private transient boolean validated;
 	
 	public static Builder builder(UUID id) {
 		return new Builder(id);
@@ -37,27 +37,35 @@ public class AudioMessage extends IdentifiableMessage {
 	public static class Builder {
 		
 		private final UUID id;
-		private Set<String> audioFiles;
+		private Set<String> audioIds;
+		private String trackId;
 		private Range delayRange;
-		private boolean primary;
 		
 		protected Builder(UUID id) {
 			this.id = id;
 		}
 		
 		
-		public Builder audio(AudioFile audioFile) {
-			if (audioFiles == null) {
-				audioFiles = new HashSet<>();
+		public Builder audio(String audioId) {
+			validateIdentifier(audioId);
+			
+			if (audioIds == null) {
+				audioIds = new HashSet<>();
 			}
-			audioFiles.add(audioFile.location);
+			audioIds.add(audioId);
 			return this;
 		}
 		
-		public Builder audio(AudioFile... audioFiles) {
-			for (AudioFile audioFile : audioFiles) {
-				audio(audioFile);
+		public Builder audio(String... audioIds) {
+			for (String audioId : audioIds) {
+				audio(audioId);
 			}
+			return this;
+		}
+		
+		public Builder track(String trackId) {
+			validateIdentifier(trackId);
+			this.trackId = trackId;
 			return this;
 		}
 		
@@ -74,56 +82,103 @@ public class AudioMessage extends IdentifiableMessage {
 			return this;
 		}
 		
-		public Builder primary() {
-			primary = true;
-			return this;
-		}
-		
 		
 		public AudioMessage build() {
-			return new AudioMessage(this);
+			AudioMessage audioMessage = new AudioMessage(this);
+			audioMessage.validated = true;
+			return audioMessage;
+		}
+		
+		private static void validateIdentifier(String identifier) {
+			Result<String> result = AudioMessage.validateIdentifier(identifier);
+			if (!result.isSuccess()) {
+				throw new IllegalArgumentException(result.getFailReason());
+			}
 		}
 		
 	}
 	
 	protected AudioMessage(Builder builder) {
 		super(builder.id);
-		audioFiles = builder.audioFiles;
+		audioIds = builder.audioIds;
+		trackId = builder.trackId;
 		delayRange = builder.delayRange;
-		primary = builder.primary;
 	}
 	
 	
 	/**
-	 * @return the set of audio file source locations that should be played, or <code>null</code> if no audio should be played
+	 * Identifiers of the audio source.
+	 * @return the set of identifiers for the audio that should be played, or <code>null</code> if no audio should be played
 	 */
-	@Override
-	public Set<String> getData() {
-		return audioFiles;
+	public Set<String> getAudioIds() {
+		return audioIds;
 	}
 	
 	/**
-	 * @return a range of integers that specify the minimum and maximum amount of seconds that the delay between
+	 * Identifies the audio destination.<br><br>
+	 * <b>note:</b> An audio track with this ID needs to be previously defined by an {@link AudioTrackMessage}
+	 * @return the identifier of the audio track to use as the destination for the audio source,
+	 * or <code>null</code> if the default audio track should be used
+	 */
+	public String getTrackId() {
+		return trackId;
+	}
+	
+	/**
+	 * @return an integer range that specify the minimum and maximum amount of seconds that the delay between
 	 * audio transitions should be. <code>null</code> will be returned if there should be no transition delay.
 	 */
 	public Range getDelayRange() {
 		return delayRange;
 	}
 	
-	/**
-	 * @return true if the target of this AudioMessage is for the primary audio track,
-	 * and false if the target is for a complementary audio track
-	 */
-	public boolean isPrimary() {
-		return primary;
-	}
-	
-	
 	@Override
-	protected boolean isDataValid() {
-		return true;
+	public boolean isValid() {
+		if (!validated) {
+			if (trackId != null && !validateIdentifier(trackId).isSuccess()) {
+				return false;
+			}
+			if (audioIds != null) {
+				for (String audioId : audioIds) {
+					if (!validateIdentifier(audioId).isSuccess()) {
+						return false;
+					}
+				}
+			}
+			validated = true;
+		}
+		return validated;
 	}
 	
+	/**
+	 * Validates that the given identifier is not empty, between 3 to 50 characters,
+	 * and contains only ASCII alpha-numeric or dash characters
+	 * @param identifier - The identifier to validate
+	 * @return a Result for the validation which will either contain the given validated identifier string,
+	 * or a message describing the reason validation failed
+	 */
+	public static Result<String> validateIdentifier(String identifier) {
+		if (identifier == null || identifier.isEmpty()) {
+			return Result.fail("Identifier cannot be empty");
+		}
+		if (identifier.length() < 3) {
+			return Result.fail("Identifier cannot be less than 3 characters");
+		}
+		if (identifier.length() > 50) {
+			return Result.fail("Identifier cannot be greater than 50 characters");
+		}
+		for (int i = 0; i < identifier.length(); i++) {
+			char character = identifier.charAt(i);
+			if (!isAsciiAlphaNumeric(character) && character != '-' && character != '_') {
+				return Result.fail("Identifier contains invalid character '" + character + "'");
+			}
+		}
+		return Result.success(identifier);
+	}
+	
+	private static boolean isAsciiAlphaNumeric(char character) {
+		return (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9');
+	}
 	
 	public static class Range {
 		
@@ -187,137 +242,6 @@ public class AudioMessage extends IdentifiableMessage {
 				}
 			}
 			return null;
-		}
-		
-	}
-	
-	public static class AudioFile {
-		
-		private static final String FILE_NAME_SPECIAL_CHARS = "-_()[]!~+ ";
-		private static final String FILE_PATH_SPECIAL_CHARS = ".-_~!$&'()*+,;=:@";
-		
-		private final String location;
-		
-		private AudioFile(String location) {
-			this.location = location;
-		}
-		
-		public String getLocation() {
-			return location;
-		}
-		
-		@Override
-		public int hashCode() {
-			return location.hashCode();
-		}
-		
-		@Override
-		public boolean equals(Object obj) {
-			if (obj == this) {
-				return true;
-			}
-			if (!(obj instanceof AudioFile)) {
-				return false;
-			}
-			return location.equals(((AudioFile) obj).location);
-		}
-		
-		
-		public static final Result<AudioFile> fromFilePath(String filePath) {
-			String fileName;
-			String path = (filePath != null ? filePath.trim() : "");
-			String[] pathParts = path.split("/", -1);
-			if (pathParts.length > 1) {
-				Set<Character> invalidChars = new HashSet<>();
-				for (int i = 0; i < pathParts.length - 1; i++) {
-					String pathPart = pathParts[i];
-					if (pathPart.isEmpty()) {
-						if (i > 0) {
-							return new Result<>("File path cannot have adjacent '/' (slash) characters");
-						}
-					} else {
-						for (int n = 0; n < pathPart.length(); n++) {
-							char currentChar = pathPart.charAt(n);
-							if (!isAsciiAlphaNumeric(currentChar) && FILE_PATH_SPECIAL_CHARS.indexOf(currentChar) < 0) {
-								invalidChars.add(currentChar);
-							}
-						}
-					}
-				}
-				if (!invalidChars.isEmpty()) {
-					String characters = Joiner.on("', '").join(invalidChars);
-					return new Result<>("File path contains invalid characters '" + characters + "'");
-				}
-				fileName = pathParts[pathParts.length - 1];
-			} else {
-				fileName = path;
-			}
-			
-			String fileNameError = validateFileName(fileName);
-			if (fileNameError != null) {
-				return new Result<>(fileNameError);
-			}
-			return new Result<>(new AudioFile(path));
-		}
-		
-		public static final Result<AudioFile> fromFileName(String fileName) {
-			String name = (fileName != null ? fileName.trim() : "");
-			String fileNameError = validateFileName(name);
-			if (fileNameError != null) {
-				return new Result<>(fileNameError);
-			}
-			return new Result<>(new AudioFile(name));
-		}
-		
-		private static final String validateFileName(String fileName) {
-			if (fileName.isEmpty()) {
-				return "File name cannot be empty, or blank";
-			}
-			int lastDotIndex = fileName.lastIndexOf('.');
-			if (lastDotIndex <= 0 || fileName.length() - 1 == lastDotIndex) {
-				return "File name must contain file extension";
-			}
-			if ((fileName.length() - 1) - lastDotIndex > 8) {
-				return "File extension cannot be more than 8 characters";
-			}
-			
-			char previousChar = 0;
-			Set<Character> invalidChars = new HashSet<>();
-			for (int i = 0; i < fileName.length(); i++) {
-				char currentChar = fileName.charAt(i);
-				if (currentChar == '.') {
-					if (previousChar == '.') {
-						return "File name cannot have adjacent '.' (dot) characters";
-					}
-					if (i == 0) {
-						return "File name cannot start with '.' (dot) characters";
-					}
-				} else {
-					boolean validChar;
-					if (i > lastDotIndex) {
-						if (i - 1 == lastDotIndex && !invalidChars.isEmpty()) {
-							String characters = Joiner.on("', '").join(invalidChars);
-							return "File name contains invalid characters '" + characters + "'";
-						}
-						validChar = isAsciiAlphaNumeric(currentChar);
-					} else {
-						validChar = isAsciiAlphaNumeric(currentChar) || FILE_NAME_SPECIAL_CHARS.indexOf(currentChar) >= 0;
-					}
-					if (!validChar) {
-						invalidChars.add(currentChar);
-					}
-				}
-				previousChar = currentChar;
-			}
-			if (!invalidChars.isEmpty()) {
-				String characters = Joiner.on("', '").join(invalidChars);
-				return "File extension contains invalid characters '" + characters + "'";
-			}
-			return null;
-		}
-		
-		private static boolean isAsciiAlphaNumeric(char character) {
-			return (character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z') || (character >= '0' && character <= '9');
 		}
 		
 	}
