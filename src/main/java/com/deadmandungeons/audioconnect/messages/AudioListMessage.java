@@ -1,5 +1,6 @@
 package com.deadmandungeons.audioconnect.messages;
 
+import com.deadmandungeons.connect.commons.Messenger.InvalidDataException;
 import com.deadmandungeons.connect.commons.Messenger.Message;
 import com.deadmandungeons.connect.commons.Messenger.MessageCreator;
 import com.deadmandungeons.connect.commons.Messenger.MessageType;
@@ -36,8 +37,13 @@ public class AudioListMessage extends Message {
     }
 
     @Override
-    public boolean isValid() {
-        return audioIds != null && !audioIds.isEmpty() && action != null;
+    public void validate() throws InvalidDataException {
+        if (audioIds == null || audioIds.isEmpty()) {
+            throw new InvalidDataException("audioIds cannot be null or empty");
+        }
+        if (action == null) {
+            throw new InvalidDataException("action cannot be null");
+        }
     }
 
 

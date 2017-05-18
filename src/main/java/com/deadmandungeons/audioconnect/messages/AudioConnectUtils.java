@@ -9,6 +9,9 @@ public class AudioConnectUtils extends ConnectUtils {
     private static final String HEX_CHARS = "0123456789ABCDEF";
     private static final char FORMATTING_CHAR = '\u00A7';
 
+    protected AudioConnectUtils() {
+    }
+
     public static String encodeFormattingCodes(String str) {
         byte[] bytes = str.getBytes(StandardCharsets.UTF_8);
         char[] chars = new char[bytes.length * 4];

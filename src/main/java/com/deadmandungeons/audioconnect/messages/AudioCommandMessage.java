@@ -1,6 +1,7 @@
 package com.deadmandungeons.audioconnect.messages;
 
 import com.deadmandungeons.connect.commons.Messenger.IdentifiableMessage;
+import com.deadmandungeons.connect.commons.Messenger.InvalidDataException;
 import com.deadmandungeons.connect.commons.Messenger.MessageCreator;
 import com.deadmandungeons.connect.commons.Messenger.MessageType;
 import com.google.gson.annotations.SerializedName;
@@ -35,8 +36,11 @@ public class AudioCommandMessage extends IdentifiableMessage {
     }
 
     @Override
-    public boolean isValid() {
-        return super.isValid() && command != null;
+    public void validate() throws InvalidDataException {
+        super.validate();
+        if (command == null) {
+            throw new InvalidDataException("command cannot be null");
+        }
     }
 
     public enum AudioCommand {

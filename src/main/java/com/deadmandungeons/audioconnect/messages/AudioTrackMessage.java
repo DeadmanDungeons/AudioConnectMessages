@@ -1,6 +1,7 @@
 package com.deadmandungeons.audioconnect.messages;
 
 import com.deadmandungeons.connect.commons.Messenger.IdentifiableMessage;
+import com.deadmandungeons.connect.commons.Messenger.InvalidDataException;
 import com.deadmandungeons.connect.commons.Messenger.MessageCreator;
 import com.deadmandungeons.connect.commons.Messenger.MessageType;
 
@@ -99,8 +100,9 @@ public class AudioTrackMessage extends IdentifiableMessage {
     }
 
     @Override
-    public boolean isValid() {
-        return AudioMessage.validateIdentifier(trackId).isSuccess();
+    public void validate() throws InvalidDataException {
+        super.validate();
+        AudioMessage.validateIdentifier(trackId);
     }
 
 }
