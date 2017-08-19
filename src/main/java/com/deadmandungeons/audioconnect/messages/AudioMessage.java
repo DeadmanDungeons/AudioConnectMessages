@@ -1,13 +1,11 @@
 package com.deadmandungeons.audioconnect.messages;
 
-import com.deadmandungeons.connect.commons.Messenger.IdentifiableMessage;
-import com.deadmandungeons.connect.commons.Messenger.InvalidDataException;
-import com.deadmandungeons.connect.commons.Messenger.MessageCreator;
-import com.deadmandungeons.connect.commons.Messenger.MessageType;
+import com.deadmandungeons.connect.commons.messenger.exceptions.IdentifierSyntaxException;
+import com.deadmandungeons.connect.commons.messenger.exceptions.InvalidMessageException;
+import com.deadmandungeons.connect.commons.messenger.messages.IdentifiableMessage;
+import com.deadmandungeons.connect.commons.messenger.messages.MessageType;
 import com.google.common.primitives.Ints;
 
-import java.lang.reflect.Type;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -16,14 +14,6 @@ import java.util.UUID;
 
 @MessageType("audio")
 public class AudioMessage extends IdentifiableMessage {
-
-    public static final MessageCreator<AudioMessage> CREATOR = new MessageCreator<AudioMessage>(AudioMessage.class) {
-
-        @Override
-        public AudioMessage createInstance(Type type) {
-            return new AudioMessage(new Builder(null));
-        }
-    };
 
     private final Set<String> audioIds;
     private final String trackId;
@@ -92,12 +82,18 @@ public class AudioMessage extends IdentifiableMessage {
 
         private static void validateIdentifier(String identifier) {
             try {
-                AudioMessage.validateIdentifier(identifier);
+                AudioConnectUtils.validateIdentifier(identifier);
             } catch (IdentifierSyntaxException e) {
                 throw new IllegalArgumentException(e);
             }
         }
 
+    }
+
+    // Used by Messenger for deserialization
+    @SuppressWarnings("unused")
+    private AudioMessage() {
+        this(builder(null));
     }
 
     protected AudioMessage(Builder builder) {
@@ -135,47 +131,21 @@ public class AudioMessage extends IdentifiableMessage {
     }
 
     @Override
-    public void validate() throws InvalidDataException {
+    public void validate() throws InvalidMessageException {
         if (!validated) {
             if (trackId != null) {
-                validateIdentifier(trackId);
+                AudioConnectUtils.validateIdentifier(trackId);
             }
             if (audioIds != null) {
                 for (String audioId : audioIds) {
-                    validateIdentifier(audioId);
+                    AudioConnectUtils.validateIdentifier(audioId);
                 }
             }
             validated = true;
         }
     }
 
-    /**
-     * Validates that the given identifier is not empty, between 3 to 50 characters,
-     * and contains only ASCII alpha-numeric or dash characters
-     * @param identifier the identifier to validate
-     * @throws IdentifierSyntaxException if the given identifier has invalid syntax
-     */
-    public static void validateIdentifier(String identifier) throws IdentifierSyntaxException {
-        if (identifier == null || identifier.isEmpty()) {
-            throw new IdentifierSyntaxException(SyntaxError.EMPTY);
-        }
-        if (identifier.length() < 3) {
-            throw new IdentifierSyntaxException(SyntaxError.MIN_LENGTH, 3);
-        }
-        if (identifier.length() > 50) {
-            throw new IdentifierSyntaxException(SyntaxError.MAX_LENGTH, 50);
-        }
-        for (int i = 0; i < identifier.length(); i++) {
-            char character = identifier.charAt(i);
-            if (!isAsciiAlphaNumeric(character) && character != '-' && character != '_') {
-                throw new IdentifierSyntaxException(SyntaxError.INVALID_CHAR, character);
-            }
-        }
-    }
 
-    private static boolean isAsciiAlphaNumeric(char c) {
-        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
-    }
 
 
     public static class Range {
@@ -242,42 +212,6 @@ public class AudioMessage extends IdentifiableMessage {
             return null;
         }
 
-    }
-
-    public static class IdentifierSyntaxException extends InvalidDataException {
-
-        private static final long serialVersionUID = 8567778573045685621L;
-
-        private final SyntaxError error;
-        private final Object[] errorVars;
-
-        public IdentifierSyntaxException(SyntaxError error, Object... errorVars) {
-            super(String.format(error.message, errorVars));
-            this.error = error;
-            this.errorVars = errorVars;
-        }
-
-        public SyntaxError getError() {
-            return error;
-        }
-
-        public Object[] getErrorVars() {
-            return Arrays.copyOf(errorVars, errorVars.length);
-        }
-
-    }
-
-    public enum SyntaxError {
-        EMPTY("Identifier cannot be empty"),
-        MIN_LENGTH("Identifier cannot be less than %s characters"),
-        MAX_LENGTH("Identifier cannot be greater than %s characters"),
-        INVALID_CHAR("Identifier contains invalid character '%s'");
-
-        private final String message;
-
-        SyntaxError(String message) {
-            this.message = message;
-        }
     }
 
 }

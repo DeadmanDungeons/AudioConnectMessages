@@ -1,12 +1,9 @@
 package com.deadmandungeons.audioconnect.messages;
 
-import com.deadmandungeons.connect.commons.Messenger.IdentifiableMessage;
-import com.deadmandungeons.connect.commons.Messenger.InvalidDataException;
-import com.deadmandungeons.connect.commons.Messenger.MessageCreator;
-import com.deadmandungeons.connect.commons.Messenger.MessageType;
-import com.google.gson.annotations.SerializedName;
+import com.deadmandungeons.connect.commons.messenger.exceptions.InvalidMessageException;
+import com.deadmandungeons.connect.commons.messenger.messages.IdentifiableMessage;
+import com.deadmandungeons.connect.commons.messenger.messages.MessageType;
 
-import java.lang.reflect.Type;
 import java.util.UUID;
 
 /**
@@ -15,14 +12,6 @@ import java.util.UUID;
  */
 @MessageType("audio-command")
 public class AudioCommandMessage extends IdentifiableMessage {
-
-    public static final MessageCreator<AudioCommandMessage> CREATOR = new MessageCreator<AudioCommandMessage>(AudioCommandMessage.class) {
-
-        @Override
-        public AudioCommandMessage createInstance(Type type) {
-            return new AudioCommandMessage(null, null);
-        }
-    };
 
     private final AudioCommand command;
 
@@ -36,17 +25,15 @@ public class AudioCommandMessage extends IdentifiableMessage {
     }
 
     @Override
-    public void validate() throws InvalidDataException {
+    public void validate() throws InvalidMessageException {
         super.validate();
         if (command == null) {
-            throw new InvalidDataException("command cannot be null");
+            throw new InvalidMessageException("command cannot be null");
         }
     }
 
     public enum AudioCommand {
-        @SerializedName("mute")
         MUTE,
-        @SerializedName("unmute")
         UNMUTE
         // more may be added
     }

@@ -1,24 +1,13 @@
 package com.deadmandungeons.audioconnect.messages;
 
-import com.deadmandungeons.connect.commons.Messenger.IdentifiableMessage;
-import com.deadmandungeons.connect.commons.Messenger.InvalidDataException;
-import com.deadmandungeons.connect.commons.Messenger.MessageCreator;
-import com.deadmandungeons.connect.commons.Messenger.MessageType;
+import com.deadmandungeons.connect.commons.messenger.exceptions.InvalidMessageException;
+import com.deadmandungeons.connect.commons.messenger.messages.IdentifiableMessage;
+import com.deadmandungeons.connect.commons.messenger.messages.MessageType;
 
-import java.lang.reflect.Type;
 import java.util.UUID;
 
 @MessageType("audio-track")
 public class AudioTrackMessage extends IdentifiableMessage {
-
-    public static final MessageCreator<AudioTrackMessage> CREATOR = new MessageCreator<AudioTrackMessage>(AudioTrackMessage.class) {
-
-        @Override
-        public AudioTrackMessage createInstance(Type type) {
-            return builder(null, null).build();
-        }
-    };
-
 
     private final String trackId;
     private final boolean defaultTrack;
@@ -100,9 +89,9 @@ public class AudioTrackMessage extends IdentifiableMessage {
     }
 
     @Override
-    public void validate() throws InvalidDataException {
+    public void validate() throws InvalidMessageException {
         super.validate();
-        AudioMessage.validateIdentifier(trackId);
+        AudioConnectUtils.validateIdentifier(trackId);
     }
 
 }

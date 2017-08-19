@@ -1,25 +1,15 @@
 package com.deadmandungeons.audioconnect.messages;
 
-import com.deadmandungeons.connect.commons.Messenger.InvalidDataException;
-import com.deadmandungeons.connect.commons.Messenger.Message;
-import com.deadmandungeons.connect.commons.Messenger.MessageCreator;
-import com.deadmandungeons.connect.commons.Messenger.MessageType;
+import com.deadmandungeons.connect.commons.messenger.exceptions.InvalidMessageException;
+import com.deadmandungeons.connect.commons.messenger.messages.Message;
+import com.deadmandungeons.connect.commons.messenger.messages.MessageType;
 
-import java.lang.reflect.Type;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
 @MessageType("audio-list")
 public class AudioListMessage extends Message {
-
-    public static final MessageCreator<AudioListMessage> CREATOR = new MessageCreator<AudioListMessage>(AudioListMessage.class) {
-
-        @Override
-        public AudioListMessage createInstance(Type type) {
-            return new AudioListMessage(null, (Set<String>) null);
-        }
-    };
 
     private final ListAction action;
     private final Set<String> audioIds;
@@ -50,18 +40,18 @@ public class AudioListMessage extends Message {
     }
 
     @Override
-    public void validate() throws InvalidDataException {
+    public void validate() throws InvalidMessageException {
         if (audioIds == null) {
-            throw new InvalidDataException("audioIds cannot be null");
+            throw new InvalidMessageException("audioIds cannot be null");
         }
         if (action == null) {
-            throw new InvalidDataException("action cannot be null");
+            throw new InvalidMessageException("action cannot be null");
         }
         if (audioIds.size() < action.min) {
-            throw new InvalidDataException("audioIds size cannot be less than " + action.min + " for action " + action);
+            throw new InvalidMessageException("audioIds size cannot be less than " + action.min + " for action " + action);
         }
         if (audioIds.size() > action.max) {
-            throw new InvalidDataException("audioIds size cannot be greater than " + action.max + " for action " + action);
+            throw new InvalidMessageException("audioIds size cannot be greater than " + action.max + " for action " + action);
         }
     }
 
