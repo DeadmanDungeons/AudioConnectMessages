@@ -59,6 +59,12 @@ public class AudioTrackMessage extends IdentifiableMessage {
 
     }
 
+    // Used by Messenger for deserialization
+    @SuppressWarnings("unused")
+    private AudioTrackMessage() {
+        this(builder(null, null));
+    }
+
     protected AudioTrackMessage(Builder builder) {
         super(builder.id);
         trackId = builder.trackId;
